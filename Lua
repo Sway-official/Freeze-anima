@@ -1,0 +1,115 @@
+-- Create ScreenGui
+local gui = Instance.new("ScreenGui")
+gui.Name = "AnimationToggleUI"
+gui.ResetOnSpawn = false
+gui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
+-- Create main frame
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 200, 0, 80)
+frame.Position = UDim2.new(0.5, -100, 0.8, 0)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BorderSizePixel = 0
+frame.Parent = gui
+
+local uicorner = Instance.new("UICorner")
+uicorner.CornerRadius = UDim.new(0, 12)
+uicorner.Parent = frame
+
+-- Create toggle button
+local toggle = Instance.new("TextButton")
+toggle.Size = UDim2.new(1, -20, 0, 50)
+toggle.Position = UDim2.new(0, 10, 0, 15)
+toggle.Text = "Stop Animation: OFF"
+toggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+toggle.TextColor3 = Color3.fromRGB(255,255,255)
+toggle.Font = Enum.Font.GothamBold
+toggle.TextSize = 18
+toggle.Parent = frame
+
+local corner2 = Instance.new("UICorner")
+corner2.CornerRadius = UDim.new(0, 10)
+corner2.Parent = toggle
+
+-- Toggle state
+local disabled = false
+
+-- Disable animations
+local function disableAnimations()
+    local player = game.Players.LocalPlayer
+    local char = player.Character or player.CharacterAdded:Wait()
+    local humanoid = char:WaitForChild("Humanoid")
+
+    local animate = char:FindFirstChild("Animate")
+    if animate then
+        animate.Disabled = true
+    end
+
+    for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do
+        track:Stop()
+    end
+end
+
+-- Enable animations
+local function enableAnimations()
+    local player = game.Players.LocalPlayer
+    local char = player.Character or player.CharacterAdded:Wait()
+    local humanoid = char:WaitForChild("Humanoid")
+
+    local animate = char:FindFirstChild("Animate")
+    if animate then
+        animate.Disabled = false
+    end
+end
+
+-- Toggle button logic
+toggle.MouseButton1Click:Connect(function()
+    disabled = not disabled
+    if disabled then
+        toggle.Text = "Stop Animation: ON"
+        toggle.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+        disableAnimations()
+    else
+        toggle.Text = "Stop Animation: OFF"
+        toggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        enableAnimations()
+    end
+end)
+
+---------------------------------------------------------------------
+-- 📌 MAKE UI DRAGGABLE
+---------------------------------------------------------------------
+
+local UIS = game:GetService("UserInputService")
+local dragging = false
+local dragStart, startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    frame.Position = UDim2.new(
+        startPos.X.Scale,
+        startPos.X.Offset + delta.X,
+        startPos.Y.Scale,
+        startPos.Y.Offset + delta.Y
+    )
+end
+
+frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+    end
+end)
+
+frame.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        update(input)
+    end
+end)
