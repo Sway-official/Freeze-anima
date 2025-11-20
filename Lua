@@ -1,115 +1,161 @@
--- Create ScreenGui
-local gui = Instance.new("ScreenGui")
-gui.Name = "AnimationToggleUI"
-gui.ResetOnSpawn = false
-gui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+--========================================================
+--  Freeze Animation by Sway (Bug-Free Version)
+--========================================================
 
--- Create main frame
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 200, 0, 80)
-frame.Position = UDim2.new(0.5, -100, 0.8, 0)
-frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+
+--========================================================
+-- UI
+--========================================================
+
+local screenGui = Instance.new("ScreenGui", player.PlayerGui)
+screenGui.ResetOnSpawn = false
+
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(0, 300, 0, 120)
+frame.Position = UDim2.new(0.05, 0, 0.25, 0)
+frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 frame.BorderSizePixel = 0
-frame.Parent = gui
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
 
-local uicorner = Instance.new("UICorner")
-uicorner.CornerRadius = UDim.new(0, 12)
-uicorner.Parent = frame
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, -20, 0, 40)
+title.Position = UDim2.new(0, 10, 0, 5)
+title.BackgroundTransparency = 1
+title.Text = "Freeze Animation by Sway"
+title.Font = Enum.Font.GothamBold
+title.TextScaled = true
+title.TextWrapped = true
+title.TextColor3 = Color3.new(1,1,1)
 
--- Create toggle button
-local toggle = Instance.new("TextButton")
-toggle.Size = UDim2.new(1, -20, 0, 50)
-toggle.Position = UDim2.new(0, 10, 0, 15)
-toggle.Text = "Stop Animation: OFF"
-toggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-toggle.TextColor3 = Color3.fromRGB(255,255,255)
-toggle.Font = Enum.Font.GothamBold
-toggle.TextSize = 18
-toggle.Parent = frame
+local toggleBtn = Instance.new("TextButton", frame)
+toggleBtn.Size = UDim2.new(1, -40, 0, 50)
+toggleBtn.Position = UDim2.new(0, 20, 0, 60)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(45,45,45)
+toggleBtn.TextColor3 = Color3.new(1,1,1)
+toggleBtn.Text = "Freeze (OFF)"
+toggleBtn.Font = Enum.Font.GothamMedium
+toggleBtn.TextScaled = true
+Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 10)
 
-local corner2 = Instance.new("UICorner")
-corner2.CornerRadius = UDim.new(0, 10)
-corner2.Parent = toggle
-
--- Toggle state
-local disabled = false
-
--- Disable animations
-local function disableAnimations()
-    local player = game.Players.LocalPlayer
-    local char = player.Character or player.CharacterAdded:Wait()
-    local humanoid = char:WaitForChild("Humanoid")
-
-    local animate = char:FindFirstChild("Animate")
-    if animate then
-        animate.Disabled = true
-    end
-
-    for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do
-        track:Stop()
-    end
-end
-
--- Enable animations
-local function enableAnimations()
-    local player = game.Players.LocalPlayer
-    local char = player.Character or player.CharacterAdded:Wait()
-    local humanoid = char:WaitForChild("Humanoid")
-
-    local animate = char:FindFirstChild("Animate")
-    if animate then
-        animate.Disabled = false
-    end
-end
-
--- Toggle button logic
-toggle.MouseButton1Click:Connect(function()
-    disabled = not disabled
-    if disabled then
-        toggle.Text = "Stop Animation: ON"
-        toggle.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
-        disableAnimations()
-    else
-        toggle.Text = "Stop Animation: OFF"
-        toggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-        enableAnimations()
-    end
+--==== DRAGGABLE UI ====--
+local dragging, dragStart, startPos
+frame.InputBegan:Connect(function(i)
+	if i.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true
+		dragStart = i.Position
+		startPos = frame.Position
+	end
+end)
+frame.InputEnded:Connect(function(i)
+	if i.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = false
+	end
+end)
+UserInputService.InputChanged:Connect(function(i)
+	if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+		local delta = i.Position - dragStart
+		frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
+			startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+	end
 end)
 
----------------------------------------------------------------------
--- 📌 MAKE UI DRAGGABLE
----------------------------------------------------------------------
+--========================================================
+-- ACTUAL FREEZE SYSTEM (BUG-FREE)
+--========================================================
 
-local UIS = game:GetService("UserInputService")
-local dragging = false
-local dragStart, startPos
+local frozen = false
+local idleTrack = nil
+local animConn = nil
 
-local function update(input)
-    local delta = input.Position - dragStart
-    frame.Position = UDim2.new(
-        startPos.X.Scale,
-        startPos.X.Offset + delta.X,
-        startPos.Y.Scale,
-        startPos.Y.Offset + delta.Y
-    )
+-- find idle track (same method as before)
+local function findIdle()
+	for _, t in ipairs(humanoid:GetPlayingAnimationTracks()) do
+		if t.Name:lower():find("idle") then
+			return t
+		end
+	end
+	for _, t in ipairs(humanoid:GetPlayingAnimationTracks()) do
+		if t.IsPlaying and t.Looped then
+			return t
+		end
+	end
+	return nil
 end
 
-frame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = frame.Position
-    end
-end)
+local function freeze()
+	frozen = true
 
-frame.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = false
-    end
-end)
+	-- get idle once
+	idleTrack = findIdle()
+	if idleTrack then
+		idleTrack:Play()
+		idleTrack.Looped = true
+	end
 
-UIS.InputChanged:Connect(function(input)
-    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        update(input)
-    end
+	-- stop all animations except idle
+	for _, t in ipairs(humanoid:GetPlayingAnimationTracks()) do
+		if t ~= idleTrack then
+			pcall(function() t:Stop() end)
+		end
+	end
+
+	-- block ALL new animations except idle
+	if animConn then animConn:Disconnect() end
+	animConn = humanoid.AnimationPlayed:Connect(function(t)
+		task.defer(function()
+			if frozen and t ~= idleTrack then
+				pcall(function() t:Stop() end)
+				if idleTrack then idleTrack:Play() end
+			end
+		end)
+	end)
+end
+
+local function unfreeze()
+	frozen = false
+
+	-- stop blocking
+	if animConn then
+		animConn:Disconnect()
+		animConn = nil
+	end
+
+	-- delete ALL animation tracks
+	for _, t in ipairs(humanoid:GetPlayingAnimationTracks()) do
+		pcall(function() t:Stop() end)
+	end
+
+	-- FULLY RESET ANIMATIONS SAFELY
+	-- this forces Roblox to rebuild all states cleanly
+	local animate = character:FindFirstChild("Animate")
+	if animate then
+		animate.Disabled = true
+		task.wait(0.05)
+		animate.Disabled = false
+	end
+
+	-- ensure idle doesn't override after unfreeze
+	idleTrack = nil
+end
+
+--========================================================
+-- BUTTON LOGIC
+--========================================================
+
+toggleBtn.MouseButton1Click:Connect(function()
+	frozen = not frozen
+	if frozen then
+		toggleBtn.Text = "Freeze (ON)"
+		toggleBtn.BackgroundColor3 = Color3.fromRGB(200,60,60)
+		freeze()
+	else
+		toggleBtn.Text = "Freeze (OFF)"
+		toggleBtn.BackgroundColor3 = Color3.fromRGB(45,45,45)
+		unfreeze()
+	end
 end)
